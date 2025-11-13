@@ -6,4 +6,7 @@ declare namespace NodeJS {
     TWITTER_ACCESS_TOKEN_SECRET: string;
     DEEPL_API_KEY: string;
   }
+  interface ImportMeta {
+    url: string;
+  }
 }

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { Quote, RawQuoteData } from "./interfaces/interfaces";
 import translateText from "./utils/translator";
 import { twitter } from "./utils/twitterTokens";
+import { startServer } from "./utils/keepAwake";
 import cron from "node-cron";
 
 function formatTweet(quoteData: Quote): string {
@@ -52,6 +53,8 @@ async function twittRandomQuote() {
 }
 
 cron.schedule("0 */2 * * *", twittRandomQuote);
+
+startServer();
 
 // Keep the process alive (for hosting)
 console.log("Bot started! Scheduling quotes every 2 hours.");
