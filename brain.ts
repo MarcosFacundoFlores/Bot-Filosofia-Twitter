@@ -5,6 +5,9 @@ import { twitter } from "./utils/twitterTokens";
 import { startServer } from "./utils/keepAwake";
 import cron from "node-cron";
 
+const MAX_TWEET_LENGTH: number = 280;
+const MAX_RETRIES: number = 10; // Prevent infinite loop
+
 function formatTweet(quoteData: Quote): string {
   const { quote, philosopher, year, school } = quoteData;
   return `${quote}\n\n— ${philosopher}, ${year}, ${school}`;
@@ -41,21 +44,42 @@ async function fetchRandomQuote(): Promise<Quote> {
   return quoteData;
 }
 
-async function twittRandomQuote() {
+async function twittRandomQuote(attempt: number = 1): Promise<void> {
+  if (attempt > MAX_RETRIES) {
+    console.error("Too many retries. Skipping this round.");
+    return;
+  }
+
   try {
     const randomQuote: Quote = await fetchRandomQuote();
-    const twittText: string = formatTweet(randomQuote);
-    console.log(twittText);
-    twitter.tweet(twittText);
-  } catch (e) {
-    console.log(e);
+    const tweetText: string = formatTweet(randomQuote);
+
+    if (tweetText.length > MAX_TWEET_LENGTH) {
+      console.log(
+        `Quote too long (${tweetText.length} chars). Retrying... (${attempt}/${MAX_RETRIES})`,
+      );
+      return twittRandomQuote(attempt + 1); // Try again
+    }
+
+    console.log(`Tweeting (${tweetText.length} chars):`);
+    console.log(tweetText);
+    await twitter.tweet(tweetText);
+    console.log("Tweeted successfully!");
+  } catch (error: any) {
+    console.error("Failed to tweet:", error?.message || error);
+    // Optional: retry on network/auth error
+    if (attempt < 3) {
+      console.log(`Retrying due to error... (${attempt}/3)`);
+      setTimeout(() => twittRandomQuote(attempt + 1), 5000);
+    }
   }
 }
 
-cron.schedule("0 */2 * * *", twittRandomQuote);
+cron.schedule("0 */2 * * *", () => {
+  console.log(`Scheduled tweet at ${new Date().toISOString()}`);
+  twittRandomQuote();
+});
 
 startServer();
-
-// Keep the process alive (for hosting)
 console.log("Bot started! Scheduling quotes every 2 hours.");
-twittRandomQuote(); // Run once on start
+twittRandomQuote().catch(console.error);
